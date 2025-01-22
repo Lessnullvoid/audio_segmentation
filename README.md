@@ -34,6 +34,7 @@ audio_segmentation/
 - **GUI**: Intuitive PyQt5 interface for user interaction.
 - **Batch Processing**: Process multiple audio files simultaneously for efficiency.
 - **Customizable Parameters**: Fine-tune detection and segmentation parameters to suit different audio types.
+- **Clustered Storage with Metadata**: Save segmented audio files into structured directories based on their cluster labels, with filenames containing frequency and musical note metadata.
 
 ## Use Recommendation
 
@@ -58,3 +59,7 @@ This tool is ideal for audio engineers, music producers, and researchers who nee
 - Visualize Features: View waveform with feature overlays.
 - Cluster Segments: Reduce redundant segments automatically.
 - Save Segments: Export processed segments as individual WAV files.
+
+## Clustered Storage with Metadata
+
+The software allows you to save segmented audio files into directories organized by cluster labels. Each segment is saved with a filename that includes its spectral centroid frequency and the corresponding musical note. This feature is particularly useful for organizing and retrieving audio segments based on their acoustic characteristics, facilitating easier analysis and processing in subsequent tasks.
