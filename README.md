@@ -32,6 +32,17 @@ audio_segmentation/
 - **Clustering**: Reduce redundant segments by clustering and selecting the most unique ones.
 - **Visualization**: Display audio waveforms and feature overlays for analysis.
 - **GUI**: Intuitive PyQt5 interface for user interaction.
+- **Batch Processing**: Process multiple audio files simultaneously for efficiency.
+- **Customizable Parameters**: Fine-tune detection and segmentation parameters to suit different audio types.
+
+## Use Recommendation
+
+This tool is ideal for audio engineers, music producers, and researchers who need to analyze and process large audio datasets. It is particularly useful for tasks such as:
+
+- Preparing audio samples for machine learning models.
+- Analyzing musical compositions for feature extraction.
+- Automating the segmentation of long audio recordings for easier editing and manipulation.
+- Reducing manual effort in identifying and clustering similar audio segments.
 
 ## Prerequisites
 
@@ -39,10 +50,11 @@ audio_segmentation/
 - Install dependencies:
   ```bash
   pip install -r requirements.txt
+  ```
 
-  ## Usage
-	•	Load Audio File: Select a WAV file for analysis.
-	•	Adjust Segmentation Threshold: Modify the sensitivity of feature detection.
-	•	Visualize Features: View waveform with feature overlays.
-	•	Cluster Segments: Reduce redundant segments automatically.
-	•	Save Segments: Export processed segments as individual WAV files.
+## Usage
+- Load Audio File: Select a WAV file for analysis.
+- Adjust Segmentation Threshold: Modify the sensitivity of feature detection.
+- Visualize Features: View waveform with feature overlays.
+- Cluster Segments: Reduce redundant segments automatically.
+- Save Segments: Export processed segments as individual WAV files.
