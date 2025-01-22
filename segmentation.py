@@ -24,3 +24,37 @@ def cluster_segments(segment_files, n_clusters):
         unique_segments.append(segment_files[closest_index])
 
     return unique_segments
+
+def segment_by_beats(features):
+    """
+    Create segments based on beat times.
+    """
+    beat_times = features.get("beats", [])
+    return [(beat_times[i], beat_times[i + 1]) for i in range(len(beat_times) - 1)]
+
+def segment_by_transients(features):
+    """
+    Create segments based on transients.
+    """
+    transients = features.get("transients", [])
+    return [(transients[i], transients[i + 1]) for i in range(len(transients) - 1)]
+
+def segment_by_frequency(features, min_freq=100, max_freq=5000):
+    """
+    Create segments where the spectral centroid falls within a frequency range.
+    """
+    times, spectral_centroid = features.get("spectral_centroid", ([], []))
+    segments = []
+    start_time = None
+    for time, freq in zip(times, spectral_centroid):
+        if min_freq <= freq <= max_freq:
+            if start_time is None:
+                start_time = time
+        else:
+            if start_time is not None:
+                segments.append((start_time, time))
+                start_time = None
+    # Add the final segment if open
+    if start_time is not None:
+        segments.append((start_time, times[-1]))
+    return segments
