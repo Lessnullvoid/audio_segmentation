@@ -1,43 +1,26 @@
 """
-This software is designed for audio feature detection and analysis using the librosa library.
-It provides functionalities to detect transients, beats, and visualize audio waveforms.
+This software is a GUI-based audio segmentation tool designed for feature detection, segmentation, and clustering of audio files.
 
 Key Features:
-- Transient Detection: Identifies sudden changes in the audio signal, which are often indicative of note onsets or other significant events.
-- Beat Tracking: Analyzes the rhythm of the audio to determine the tempo and locate beat positions.
-- Waveform Visualization: Plots the audio waveform for visual inspection and analysis.
+- Intuitive PyQt5 interface for loading and processing audio files.
+- Feature Detection: Identifies transients, beats, and spectral features.
+- Segmentation: Divides audio into meaningful segments based on detected features.
+- Clustering: Groups similar segments to reduce redundancy.
+- Visualization: Displays audio waveforms and feature overlays for analysis.
+- Clustered Storage with Metadata: Saves segments with frequency and note metadata in organized directories.
 
-The software is intended for use in music information retrieval, audio analysis, and other applications where understanding the structure and content of audio signals is important.
+The application is ideal for audio engineers, music producers, and researchers who need to analyze and process large audio datasets efficiently.
 """
 
-from feature_detection import detect_features
-from segmentation import segment_audio, cluster_segments
-from visualization import plot_features
-from utils import chop_audio
+from PyQt5.QtWidgets import QApplication
+import sys
+from ui import AudioSegmentationApp  # Import the UI class
 
 def main():
-    audio_file = "1.Sound_Sampler.wav"
-    
-    # Step 1: Detect features
-    features = detect_features(audio_file)
-    
-    # Step 2: Visualize features
-    plot_features(audio_file, features)
-    
-    # Step 3: Segment audio
-    segments = segment_audio(features)
-    print(f"Detected Segments: {segments}")
-    
-    # Step 4: Chop audio into segments
-    chop_audio(audio_file, segments)
-
-    # List of segment files
-    segment_files = [f"segment_{i+1}.wav" for i in range(len(segments))]
-
-    # Cluster segments and get unique ones
-    unique_segments = cluster_segments(segment_files, n_clusters=5)
-
-    # unique_segments now contains the most unique segments
+    app = QApplication(sys.argv)
+    window = AudioSegmentationApp()  # Create an instance of the UI class
+    window.show()  # Show the main window
+    sys.exit(app.exec_())  # Start the application event loop
 
 if __name__ == "__main__":
     main()
