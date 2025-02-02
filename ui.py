@@ -1,11 +1,11 @@
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QPushButton, QSlider, QLabel, QFileDialog, QWidget, QListWidget, QComboBox, QLineEdit
+    QApplication, QMainWindow, QVBoxLayout, QPushButton, QSlider, QLabel, QFileDialog, QWidget, QListWidget, QComboBox, QLineEdit, QHBoxLayout
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 import sys
 from feature_detection import detect_features
 from segmentation import segment_audio, segment_by_beats, segment_by_transients, segment_by_frequency
-from visualization import plot_features, simplified_waveform_with_segments
+from visualization import plot_features, simplified_waveform_with_segments, WaveformVisualizer
 from utils import chop_audio_with_metadata
 from clustering import cluster_segments, cluster_segments_kmeans
 import matplotlib.pyplot as plt
@@ -13,162 +13,325 @@ import numpy as np
 import librosa
 from pydub import AudioSegment
 from pydub.playback import play
+from audio_player import AudioPlayer
 
 
 class AudioSegmentationApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Audio Segmentation Tool")
-        self.setGeometry(100, 100, 800, 600)
-        self.segments = []  # Initialize the segments attribute
-        self.manual_segments = []  # Store manually selected segments
+        self.setGeometry(100, 100, 1000, 800)  # Made window larger to accommodate visualization
+        
+        # Define button styles
+        self.play_button_style = """
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 8px;
+                border: none;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """
+        
+        self.stop_button_style = """
+            QPushButton {
+                background-color: #ff4444;
+                color: white;
+                padding: 8px;
+                border: none;
+                border-radius: 4px;
+            }
+        """
+        
+        # Initialize other attributes
+        self.auto_segments = []  # For automatic segmentation
+        self.manual_segments = []  # For manual segmentation
+        self.segments = []  # Current active segments
+        self.visualizer = WaveformVisualizer()  # Create visualizer instance
+        self.audio_player = AudioPlayer()
+        
         self.initUI()
 
     def initUI(self):
+        # Create main widget and layout
+        main_widget = QWidget()
         layout = QVBoxLayout()
+        
+        # Create a horizontal layout for controls and visualization
+        h_layout = QHBoxLayout()
+        
+        # Create a widget for controls
+        controls_widget = QWidget()
+        controls_layout = QVBoxLayout()
 
-        # Title
-        title_label = QLabel("Load and manual")
-        title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
-        layout.addWidget(title_label)
+        # Style for black buttons (all buttons except play)
+        black_button_style = """
+            QPushButton {
+                background-color: #1a1a1a;
+                color: white;
+                padding: 8px;
+                border: none;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #333333;
+            }
+            QPushButton:pressed {
+                background-color: #0d0d0d;
+            }
+            QPushButton:checked {
+                background-color: #FF4444;
+            }
+            QPushButton:disabled {
+                background-color: #666666;
+            }
+        """
 
-        # Button Row 1
+        # 1. Load and Manual Controls
         button_layout1 = QVBoxLayout()
         self.load_button = QPushButton("Load audio")
         self.manual_button = QPushButton("Manual segmentation")
+        self.manual_button.setCheckable(True)
+        self.save_manual_button = QPushButton("Save manual segments")
+        
+        # Apply black style
+        self.load_button.setStyleSheet(black_button_style)
+        self.manual_button.setStyleSheet(black_button_style)
+        self.save_manual_button.setStyleSheet(black_button_style)
+        
         button_layout1.addWidget(self.load_button)
         button_layout1.addWidget(self.manual_button)
-        layout.addLayout(button_layout1)
+        button_layout1.addWidget(self.save_manual_button)
+        controls_layout.addLayout(button_layout1)
 
-        # Button Row 2
-        button_layout2 = QVBoxLayout()
-        self.play_button = QPushButton("Play segment")
-        self.save_manual_button = QPushButton("Save manual segments")
-        button_layout2.addWidget(self.play_button)
-        button_layout2.addWidget(self.save_manual_button)
-        layout.addLayout(button_layout2)
-
-        # Subtitle
-        subtitle_label = QLabel("Algorithmic Segmentation")
-        subtitle_label.setStyleSheet("font-size: 18px; font-weight: bold;")
-        layout.addWidget(subtitle_label)
-
-        # Segmentation Method
+        # 2. Segmentation Method
         self.method_label = QLabel("Select segmentation method")
-        layout.addWidget(self.method_label)
+        controls_layout.addWidget(self.method_label)
         self.method_combo = QComboBox()
-        self.method_combo.addItems(["By beats", "By transients", "By frequency range"])
-        layout.addWidget(self.method_combo)
+        self.method_combo.addItems(["By Beats", "By Transients", "By Frequency Range"])
+        controls_layout.addWidget(self.method_combo)
 
-        # Sliders and Inputs
+        # 3. Segmentation Parameters
+        # Threshold
         self.threshold_label = QLabel("Segmentation Threshold: 0.1")
         self.threshold_slider = QSlider(Qt.Horizontal)
         self.threshold_slider.setMinimum(1)
         self.threshold_slider.setMaximum(100)
         self.threshold_slider.setValue(10)
-        layout.addWidget(self.threshold_label)
-        layout.addWidget(self.threshold_slider)
+        self.threshold_slider.valueChanged.connect(self.update_threshold)
+        controls_layout.addWidget(self.threshold_label)
+        controls_layout.addWidget(self.threshold_slider)
 
+        # Clustering Parameters
+        self.eps_label = QLabel("Clustering Epsilon: 0.5")
         self.eps_slider = QSlider(Qt.Horizontal)
         self.eps_slider.setMinimum(1)
         self.eps_slider.setMaximum(100)
         self.eps_slider.setValue(50)
-        layout.addWidget(QLabel("Clustering Epsilon:"))
-        layout.addWidget(self.eps_slider)
+        self.eps_slider.valueChanged.connect(self.update_eps)
+        controls_layout.addWidget(self.eps_label)
+        controls_layout.addWidget(self.eps_slider)
 
+        self.min_samples_label = QLabel("Clustering Min Samples: 1")
         self.min_samples_slider = QSlider(Qt.Horizontal)
         self.min_samples_slider.setMinimum(1)
         self.min_samples_slider.setMaximum(10)
         self.min_samples_slider.setValue(1)
-        layout.addWidget(QLabel("Clustering Min Samples:"))
-        layout.addWidget(self.min_samples_slider)
+        self.min_samples_slider.valueChanged.connect(self.update_min_samples)
+        controls_layout.addWidget(self.min_samples_label)
+        controls_layout.addWidget(self.min_samples_slider)
 
-        self.cluster_label = QLabel("Number of Segments (Clusters):")
-        layout.addWidget(self.cluster_label)
+        # Number of Segments
+        self.cluster_label = QLabel("Number of Segments (Clusters): 10")
         self.cluster_slider = QSlider(Qt.Horizontal)
         self.cluster_slider.setMinimum(1)
         self.cluster_slider.setMaximum(100)
         self.cluster_slider.setValue(10)
-        layout.addWidget(self.cluster_slider)
+        self.cluster_slider.valueChanged.connect(self.update_clusters)
+        controls_layout.addWidget(self.cluster_label)
+        controls_layout.addWidget(self.cluster_slider)
 
+        # Frequency Range
+        self.min_freq_label = QLabel("Minimum Frequency: 100 Hz")
         self.min_freq_slider = QSlider(Qt.Horizontal)
         self.min_freq_slider.setMinimum(20)
         self.min_freq_slider.setMaximum(20000)
         self.min_freq_slider.setValue(100)
-        layout.addWidget(QLabel("Minimum Frequency:"))
-        layout.addWidget(self.min_freq_slider)
+        self.min_freq_slider.valueChanged.connect(self.update_min_freq)
+        controls_layout.addWidget(self.min_freq_label)
+        controls_layout.addWidget(self.min_freq_slider)
 
+        self.max_freq_label = QLabel("Maximum Frequency: 5000 Hz")
         self.max_freq_slider = QSlider(Qt.Horizontal)
         self.max_freq_slider.setMinimum(20)
         self.max_freq_slider.setMaximum(20000)
         self.max_freq_slider.setValue(5000)
-        layout.addWidget(QLabel("Maximum Frequency:"))
-        layout.addWidget(self.max_freq_slider)
+        self.max_freq_slider.valueChanged.connect(self.update_max_freq)
+        controls_layout.addWidget(self.max_freq_label)
+        controls_layout.addWidget(self.max_freq_slider)
 
+        # Desired Number of Segments
         self.manual_segments_label = QLabel("Desired Number of Segments:")
-        layout.addWidget(self.manual_segments_label)
+        controls_layout.addWidget(self.manual_segments_label)
         self.manual_segments_input = QLineEdit()
         self.manual_segments_input.setPlaceholderText("Enter number of segments (e.g., 10)")
-        layout.addWidget(self.manual_segments_input)
+        controls_layout.addWidget(self.manual_segments_input)
 
-        # Action Buttons
+        # Similarity Threshold
+        self.similarity_label = QLabel("Similarity Threshold: 0.85")
+        self.similarity_slider = QSlider(Qt.Horizontal)
+        self.similarity_slider.setMinimum(50)
+        self.similarity_slider.setMaximum(100)
+        self.similarity_slider.setValue(85)
+        self.similarity_slider.valueChanged.connect(self.update_similarity)
+        controls_layout.addWidget(self.similarity_label)
+        controls_layout.addWidget(self.similarity_slider)
+
+        # 4. Action Buttons
         self.segment_button = QPushButton("Segment and Visualize")
         self.cluster_button = QPushButton("Cluster Segments")
         self.save_button = QPushButton("Save Segments")
-        layout.addWidget(self.segment_button)
-        layout.addWidget(self.cluster_button)
-        layout.addWidget(self.save_button)
+        self.clear_button = QPushButton("Clear Segments")
+        
+        # Apply black style
+        self.segment_button.setStyleSheet(black_button_style)
+        self.cluster_button.setStyleSheet(black_button_style)
+        self.save_button.setStyleSheet(black_button_style)
+        self.clear_button.setStyleSheet(black_button_style)
+        
+        controls_layout.addWidget(self.segment_button)
+        controls_layout.addWidget(self.cluster_button)
+        controls_layout.addWidget(self.save_button)
+        controls_layout.addWidget(self.clear_button)
 
-        # Segment List
+        # 5. Segment List
         self.cluster_list = QListWidget()
-        layout.addWidget(self.cluster_list)
+        controls_layout.addWidget(self.cluster_list)
 
-        # Main Widget
-        main_widget = QWidget()
+        # 6. Play Button (at the bottom)
+        self.play_button = QPushButton("Play Selected Segment")
+        self.play_button.setStyleSheet(self.play_button_style)
+        controls_layout.addWidget(self.play_button)
+
+        controls_widget.setLayout(controls_layout)
+        
+        # Create a container for visualization and its controls
+        viz_container = QWidget()
+        viz_layout = QVBoxLayout()
+        
+        # Zoom controls at the top
+        viz_controls_layout = QHBoxLayout()
+        
+        # Zoom buttons
+        zoom_in_button = QPushButton("+")
+        zoom_out_button = QPushButton("-")
+        reset_zoom_button = QPushButton("Reset View")
+        
+        # Style zoom buttons
+        zoom_button_style = """
+            QPushButton {
+                background-color: #1a1a1a;
+                color: white;
+                padding: 4px;
+                border: none;
+                border-radius: 4px;
+                min-width: 30px;
+            }
+            QPushButton:hover {
+                background-color: #333333;
+            }
+        """
+        
+        zoom_in_button.setStyleSheet(zoom_button_style)
+        zoom_out_button.setStyleSheet(zoom_button_style)
+        reset_zoom_button.setStyleSheet(black_button_style)
+        
+        viz_controls_layout.addWidget(zoom_in_button)
+        viz_controls_layout.addWidget(zoom_out_button)
+        viz_controls_layout.addWidget(reset_zoom_button)
+        viz_controls_layout.addStretch()
+        
+        # Add visualization toolbar
+        viz_controls_layout.addWidget(self.visualizer.toolbar)
+        
+        # Add controls and canvas to viz container
+        viz_layout.addLayout(viz_controls_layout)
+        viz_layout.addWidget(self.visualizer.canvas)
+        
+        viz_container.setLayout(viz_layout)
+        
+        # Add controls and visualization container to main layout
+        h_layout.addWidget(controls_widget)
+        h_layout.addWidget(viz_container)
+        
+        # Add the horizontal layout to the main layout
+        layout.addLayout(h_layout)
+        
         main_widget.setLayout(layout)
         self.setCentralWidget(main_widget)
 
         # Connect buttons to functions
         self.load_button.clicked.connect(self.load_audio)
-        self.manual_button.clicked.connect(self.manual_segmentation)
+        self.manual_button.clicked.connect(self.toggle_manual_mode)
         self.play_button.clicked.connect(self.play_segment)
         self.save_manual_button.clicked.connect(self.save_manual_segments)
         self.segment_button.clicked.connect(self.segment_audio)
         self.cluster_button.clicked.connect(self.cluster_segments)
         self.save_button.clicked.connect(self.save_segments)
+        self.clear_button.clicked.connect(self.clear_segments)
+        
+        # Connect zoom buttons
+        zoom_in_button.clicked.connect(self.zoom_in)
+        zoom_out_button.clicked.connect(self.zoom_out)
+        reset_zoom_button.clicked.connect(self.reset_zoom)
 
     def load_audio(self):
         self.audio_file, _ = QFileDialog.getOpenFileName(self, "Open Audio File", "", "Audio Files (*.wav)")
         if self.audio_file:
             print(f"Loaded audio file: {self.audio_file}")
-            self.segments = []  # Reset segments when a new audio file is loaded
-            # Remove the visualization call
-            # simplified_waveform_with_segments(self.audio_file, self.segments)
+            self.segments = []
+            self.visualizer.plot_waveform(self.audio_file)  # Initial visualization
 
     def update_threshold(self):
         value = self.threshold_slider.value() / 100
-        self.threshold_label.setText(f"Segmentation Threshold: {value}")
+        self.threshold_label.setText(f"Segmentation Threshold: {value:.2f}")
 
     def update_eps(self):
-        self.eps = self.eps_slider.value() / 100.0
-        print(f"Updated Epsilon: {self.eps}")
+        value = self.eps_slider.value() / 100.0
+        self.eps_label.setText(f"Clustering Epsilon: {value:.2f}")
+        self.eps = value
 
     def update_min_samples(self):
-        self.min_samples = self.min_samples_slider.value()
-        print(f"Updated Min Samples: {self.min_samples}")
+        value = self.min_samples_slider.value()
+        self.min_samples_label.setText(f"Clustering Min Samples: {value}")
+        self.min_samples = value
 
     def update_min_freq(self):
-        self.min_freq = self.min_freq_slider.value()
-        print(f"Updated Minimum Frequency: {self.min_freq}")
+        value = self.min_freq_slider.value()
+        self.min_freq_label.setText(f"Minimum Frequency: {value} Hz")
+        self.min_freq = value
 
     def update_max_freq(self):
-        self.max_freq = self.max_freq_slider.value()
-        print(f"Updated Maximum Frequency: {self.max_freq}")
+        value = self.max_freq_slider.value()
+        self.max_freq_label.setText(f"Maximum Frequency: {value} Hz")
+        self.max_freq = value
 
     def update_clusters(self):
-        self.n_clusters = self.cluster_slider.value()
-        self.cluster_label.setText(f"Number of Segments (Clusters): {self.n_clusters}")
-        print(f"Updated Number of Clusters: {self.n_clusters}")
+        value = self.cluster_slider.value()
+        self.cluster_label.setText(f"Number of Segments (Clusters): {value}")
+        self.n_clusters = value
+
+    def update_similarity(self):
+        value = self.similarity_slider.value() / 100
+        self.similarity_label.setText(f"Similarity Threshold: {value:.2f}")
 
     def segment_audio(self):
         if not hasattr(self, "audio_file"):
@@ -179,77 +342,114 @@ class AudioSegmentationApp(QMainWindow):
         print(f"Extracted features: {self.features}")
 
         manual_segment_count = self.manual_segments_input.text()
+        selected_method = self.method_combo.currentText()
+        
+        print(f"Selected method: {selected_method}")  # Debug print
+        
         if manual_segment_count.isdigit():
             n_segments = int(manual_segment_count)
-            self.segments, self.cluster_labels = cluster_segments_kmeans(self.audio_file, self.segments, n_clusters=n_segments)
+            print(f"Using manual segment count: {n_segments}")  # Debug print
+            
+            # First create segments if none exist
+            if not self.auto_segments:
+                if selected_method == "By Beats":
+                    self.auto_segments = segment_by_beats(self.features)
+                elif selected_method == "By Transients":
+                    self.auto_segments = segment_by_transients(self.features)
+                elif selected_method == "By Frequency Range":
+                    min_freq = self.min_freq_slider.value()
+                    max_freq = self.max_freq_slider.value()
+                    self.auto_segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq)
+            
+            if self.auto_segments:
+                similarity_threshold = self.similarity_slider.value() / 100
+                self.auto_segments, self.cluster_labels = cluster_segments_kmeans(
+                    self.audio_file, 
+                    self.auto_segments, 
+                    n_clusters=n_segments,
+                    similarity_threshold=similarity_threshold
+                )
+            else:
+                print("No segments available for clustering!")
+                return
         else:
-            selected_method = self.method_combo.currentText()
             if selected_method == "By Beats":
-                self.segments = segment_by_beats(self.features)
+                print("Segmenting by beats...")  # Debug print
+                self.auto_segments = segment_by_beats(self.features)
             elif selected_method == "By Transients":
-                self.segments = segment_by_transients(self.features)
+                print("Segmenting by transients...")  # Debug print
+                self.auto_segments = segment_by_transients(self.features)
             elif selected_method == "By Frequency Range":
+                print("Segmenting by frequency range...")  # Debug print
                 min_freq = self.min_freq_slider.value()
                 max_freq = self.max_freq_slider.value()
-                self.segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq)
+                self.auto_segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq)
             else:
-                self.segments = []
-            self.cluster_labels = None
+                print(f"Unknown segmentation method: {selected_method}")
+                return
 
-        print(f"Detected Segments: {self.segments}")
+        self.segments = self.auto_segments  # Update current active segments
+        print(f"Generated segments: {self.segments}")  # Debug print
 
-        # Update the cluster list with detected segments
-        self.cluster_list.clear()
-        for i, segment in enumerate(self.segments):
-            self.cluster_list.addItem(f"Segment {i + 1}: {segment}")
+        # Update visualization after segmentation
+        if self.segments:
+            self.visualizer.plot_waveform(self.audio_file, self.segments)
+            self.cluster_list.clear()
+            for i, segment in enumerate(self.segments):
+                self.cluster_list.addItem(f"Segment {i + 1}: {segment[0]:.2f}s - {segment[1]:.2f}s")
+        else:
+            print("No segments were generated!")
 
-        # Call the visualization function
-        simplified_waveform_with_segments(self.audio_file, self.segments)
-
-    def manual_segmentation(self):
+    def toggle_manual_mode(self):
+        """Toggle manual segmentation mode"""
         if not hasattr(self, "audio_file"):
             print("No audio file loaded!")
+            self.manual_button.setChecked(False)
             return
+        
+        if self.manual_button.isChecked():
+            # Enable manual mode
+            self.manual_button.setStyleSheet("background-color: #FF4444; color: white;")
+            self.visualizer.enable_manual_mode(self.manual_segment_click)
+            print("Manual segmentation mode enabled. Click to add segment boundaries.")
+        else:
+            # Disable manual mode
+            self.manual_button.setStyleSheet("")
+            self.visualizer.disable_manual_mode()
+            print("Manual segmentation mode disabled.")
 
-        y, sr = librosa.load(self.audio_file)
-        # Compute the spectrogram
-        S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, fmax=8000)
-        S_dB = librosa.power_to_db(S, ref=np.max)
-
-        fig, ax = plt.subplots()
-        img = librosa.display.specshow(S_dB, sr=sr, x_axis='time', y_axis='mel', ax=ax, fmax=8000)
-        fig.colorbar(img, ax=ax, format='%+2.0f dB')
-        ax.set_title('Manual Segmentation: Click to select segment boundaries')
-
-        self.manual_segments = []
-
-        def onclick(event):
-            if event.inaxes == ax:
-                time_clicked = event.xdata
-                if event.key == 'c':
-                    # Clear the nearest boundary
-                    if self.manual_segments:
-                        nearest_index = min(range(len(self.manual_segments)), key=lambda i: abs(self.manual_segments[i] - time_clicked))
-                        ax.lines.pop(nearest_index)
-                        self.manual_segments.pop(nearest_index)
-                        fig.canvas.draw()
-                else:
-                    if len(self.manual_segments) % 2 == 0:
-                        ax.axvline(x=time_clicked, color='r', linestyle='--')  # Red for start
-                    else:
-                        ax.axvline(x=time_clicked, color='b', linestyle='--')  # Blue for end
-                        # Add the segment to the list
-                        start = self.manual_segments[-1]
-                        end = time_clicked
-                        self.segments.append((start, end))
-                        self.cluster_list.addItem(f"Manual Segment {len(self.segments)}: ({start:.2f}, {end:.2f})")
-                    self.manual_segments.append(time_clicked)
-                    fig.canvas.draw()
-
-        cid = fig.canvas.mpl_connect('button_press_event', onclick)
-        plt.show()
+    def manual_segment_click(self, event):
+        """Handle clicks during manual segmentation"""
+        if not self.manual_button.isChecked():
+            return
+        
+        if event.inaxes in [self.visualizer.ax_wave, self.visualizer.ax_spec]:
+            time_clicked = event.xdata
+            
+            if event.key == 'c':  # Clear last boundary
+                if self.visualizer.temp_boundaries:
+                    self.visualizer.ax_wave.lines.pop()
+                    self.visualizer.ax_spec.lines.pop()
+                    self.visualizer.temp_boundaries.pop()
+                    self.visualizer.canvas.draw()
+            else:
+                # Add new boundary
+                segment_complete = self.visualizer.add_boundary(time_clicked)
+                
+                if segment_complete:
+                    # Create new segment
+                    start = self.visualizer.temp_boundaries[-2]
+                    end = self.visualizer.temp_boundaries[-1]
+                    self.manual_segments.append((start, end))
+                    self.segments = self.manual_segments
+                    
+                    # Update segment list
+                    self.cluster_list.addItem(
+                        f"Manual Segment {len(self.manual_segments)}: ({start:.2f}s - {end:.2f}s)"
+                    )
 
     def play_segment(self):
+        """Play selected segment"""
         if not hasattr(self, "audio_file") or not self.segments:
             print("No segments available to play!")
             return
@@ -259,18 +459,28 @@ class AudioSegmentationApp(QMainWindow):
             print("No segment selected!")
             return
 
+        # Get selected segment
         selected_index = self.cluster_list.row(selected_items[0])
         start, end = self.segments[selected_index]
 
-        self.play_segment_range(start, end)
-
-    def play_segment_range(self, start, end):
-        # Load the audio segment
-        audio = AudioSegment.from_wav(self.audio_file)
-        segment = audio[start * 1000:end * 1000]  # Convert to milliseconds
-
+        # Update button text/style while playing
+        self.play_button.setText("Stop Playback")
+        self.play_button.setStyleSheet(self.stop_button_style)
+        
         # Play the segment
-        play(segment)
+        self.audio_player.play_segment(self.audio_file, start, end)
+        
+        # Start a timer to check when playback is finished
+        QTimer.singleShot(100, self.check_playback_status)
+
+    def check_playback_status(self):
+        """Check if playback has finished and reset button"""
+        if not self.audio_player.is_playing():
+            self.play_button.setText("Play Selected Segment")
+            self.play_button.setStyleSheet(self.play_button_style)
+        else:
+            # Check again in 100ms
+            QTimer.singleShot(100, self.check_playback_status)
 
     def cluster_segments(self):
         if not hasattr(self, "segments"):
@@ -302,6 +512,39 @@ class AudioSegmentationApp(QMainWindow):
             print("Manual segments saved!")
         else:
             print("No manual segments to save!")
+
+    def clear_segments(self):
+        """Clear all segments and reset the visualization"""
+        self.auto_segments = []
+        self.manual_segments = []
+        self.segments = []
+        self.cluster_labels = None
+        self.cluster_list.clear()
+        
+        # Disable manual mode if active
+        if self.manual_button.isChecked():
+            self.manual_button.setChecked(False)
+            self.manual_button.setStyleSheet("")
+            self.visualizer.disable_manual_mode()
+        
+        if hasattr(self, "audio_file"):
+            self.visualizer.plot_waveform(self.audio_file)
+            print("All segments cleared!")
+        else:
+            print("No audio file loaded!")
+
+    def zoom_in(self):
+        """Zoom in on both visualizations"""
+        self.visualizer.zoom(0.8)  # Zoom in by 20%
+
+    def zoom_out(self):
+        """Zoom out on both visualizations"""
+        self.visualizer.zoom(1.25)  # Zoom out by 25%
+
+    def reset_zoom(self):
+        """Reset zoom to show full waveform"""
+        if hasattr(self.visualizer, 'time_range'):
+            self.visualizer.zoom(float('inf'))  # This will force it to maximum range
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.cluster import KMeans
+from utils import is_silent_segment
 
 def segment_audio(features, threshold=0.1):
     all_events = np.concatenate([
@@ -25,24 +26,49 @@ def cluster_segments(segment_files, n_clusters):
 
     return unique_segments
 
-def segment_by_beats(features):
-    """
-    Create segments based on beat times.
-    """
-    beat_times = features.get("beats", [])
-    return [(beat_times[i], beat_times[i + 1]) for i in range(len(beat_times) - 1)]
+def segment_by_beats(features, min_segment_length=0.1):
+    """Segment audio by detected beats"""
+    segments = []
+    beats = features["beats"]
+    
+    if len(beats) < 2:
+        print("Not enough beats detected for segmentation")
+        # Fall back to transients if no beats detected
+        return segment_by_transients(features, min_segment_length)
+    
+    for i in range(len(beats) - 1):
+        start = beats[i]
+        end = beats[i + 1]
+        
+        # Check minimum segment length
+        if end - start >= min_segment_length:
+            if not is_silent_segment(features["audio_file"], start, end):
+                segments.append((start, end))
+    
+    if not segments:
+        print("No valid segments found using beats, falling back to transients")
+        return segment_by_transients(features, min_segment_length)
+        
+    return segments
 
-def segment_by_transients(features):
-    """
-    Create segments based on transients.
-    """
-    transients = features.get("transients", [])
-    return [(transients[i], transients[i + 1]) for i in range(len(transients) - 1)]
+def segment_by_transients(features, min_segment_length=0.1):
+    """Segment audio by detected transients"""
+    segments = []
+    transients = features["transients"]
+    
+    for i in range(len(transients) - 1):
+        start = transients[i]
+        end = transients[i + 1]
+        
+        # Check minimum segment length
+        if end - start >= min_segment_length:
+            if not is_silent_segment(features["audio_file"], start, end):
+                segments.append((start, end))
+    
+    return segments
 
-def segment_by_frequency(features, min_freq=100, max_freq=5000):
-    """
-    Create segments where the spectral centroid falls within a frequency range.
-    """
+def segment_by_frequency(features, min_freq=20, max_freq=20000, min_segment_length=0.1):
+    """Segment audio by frequency content"""
     times, spectral_centroid = features.get("spectral_centroid", ([], []))
     segments = []
     start_time = None
@@ -57,4 +83,15 @@ def segment_by_frequency(features, min_freq=100, max_freq=5000):
     # Add the final segment if open
     if start_time is not None:
         segments.append((start_time, times[-1]))
+    
+    segments = []
+    for i in range(len(segments) - 1):
+        start = segments[i]
+        end = segments[i + 1]
+        
+        # Check minimum segment length
+        if end - start >= min_segment_length:
+            if not is_silent_segment(features["audio_file"], start, end):
+                segments.append((start, end))
+    
     return segments

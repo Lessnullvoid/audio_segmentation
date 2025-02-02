@@ -49,3 +49,31 @@ def extract_features(segment_file):
     y, sr = librosa.load(segment_file)
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
     return np.mean(mfccs, axis=1)
+
+def is_silent_segment(audio_file, start, end, threshold_db=-60):
+    """
+    Check if a segment is silent
+    Parameters:
+        audio_file: path to audio file
+        start: start time in seconds
+        end: end time in seconds
+        threshold_db: silence threshold in dB (default: -60dB)
+    Returns:
+        bool: True if segment is silent
+    """
+    y, sr = librosa.load(audio_file)
+    
+    # Get segment samples
+    start_sample = int(start * sr)
+    end_sample = int(end * sr)
+    segment = y[start_sample:end_sample]
+    
+    if len(segment) == 0:
+        return True
+        
+    # Calculate RMS energy in dB
+    rms = librosa.feature.rms(y=segment)
+    db = librosa.amplitude_to_db(rms, ref=np.max)
+    
+    # Check if the average dB is below threshold
+    return np.mean(db) < threshold_db

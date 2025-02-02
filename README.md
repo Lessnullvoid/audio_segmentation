@@ -1,67 +1,137 @@
 # Audio Segmentation Tool
 
-This repository contains a Python-based audio segmentation tool with a graphical user interface (GUI) for feature detection, segmentation, and clustering.
-
-## Directory Structure
-
-audio_segmentation/
-│
-
-├── main.py               # Entry point to run the software
-
-├── ui.py                 # Contains the UI implementation
-
-├── feature_detection.py  # Feature detection logic
-
-├── segmentation.py       # Segmentation logic
-
-├── clustering.py         # Clustering similar segments
-
-├── utils.py              # Audio chopping utility
-
-├── visualization.py      # Visualization logic
-
-├── requirements.txt      # List of dependencies
-
-└── audio_files/          # Directory for your test WAV files
+A Python-based GUI application for segmenting audio files using various methods and clustering similar segments together.
 
 ## Features
 
-- **Feature Detection**: Extract transients, beats, and spectral features using `feature_detection.py`.
-- **Segmentation**: Chop audio into meaningful segments based on detected features.
-- **Manual Segmentation**: Allows users to manually segment audio using a spectrogram view, providing precise control over segment boundaries.
-- **Clustering**: Reduce redundant segments by clustering and selecting the most unique ones.
-- **Visualization**: Display audio waveforms and feature overlays for analysis.
-- **GUI**: Intuitive PyQt5 interface for user interaction, with organized layout for easy access to functionalities.
-- **Batch Processing**: Process multiple audio files simultaneously for efficiency.
-- **Customizable Parameters**: Fine-tune detection and segmentation parameters to suit different audio types.
-- **Clustered Storage with Metadata**: Save segmented audio files into structured directories based on their cluster labels, with filenames containing frequency and musical note metadata.
+- **Multiple Segmentation Methods**:
+  - Beat-based segmentation
+  - Transient-based segmentation
+  - Frequency range-based segmentation
 
-## Use Recommendation
+- **Interactive Visualization**:
+  - Waveform display
+  - Zoom controls
+  - Manual segmentation through clicking
+  - Real-time segment visualization
 
-This tool is ideal for audio engineers, music producers, and researchers who need to analyze and process large audio datasets. It is particularly useful for tasks such as:
+- **Clustering Capabilities**:
+  - K-means clustering of similar segments
+  - Adjustable number of clusters
+  - Similarity threshold control
 
-- Preparing audio samples for machine learning models.
-- Analyzing musical compositions for feature extraction.
-- Automating the segmentation of long audio recordings for easier editing and manipulation.
-- Reducing manual effort in identifying and clustering similar audio segments.
+- **Playback Features**:
+  - Play individual segments
+  - Stop/resume playback
+  - Real-time playback status indication
 
-## Prerequisites
+## Installation
 
-- Python 3.7 or later
-- Install dependencies:
-  ```bash
-  pip install -r requirements.txt
-  ```
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/audio_segmentation.git
+cd audio_segmentation
+```
+
+2. Install required dependencies:
+```bash
+pip install -r requirements.txt
+```
 
 ## Usage
-- Load Audio File: Select a WAV file for analysis.
-- Manual Segmentation: Use the spectrogram view to manually define segment boundaries.
-- Adjust Segmentation Threshold: Modify the sensitivity of feature detection.
-- Visualize Features: View waveform with feature overlays.
-- Cluster Segments: Reduce redundant segments automatically.
-- Save Segments: Export processed segments as individual WAV files.
 
-## Clustered Storage with Metadata
+1. Launch the application:
+```bash
+python main.py
+```
 
-The software allows you to save segmented audio files into directories organized by cluster labels. Each segment is saved with a filename that includes its spectral centroid frequency and the corresponding musical note. This feature is particularly useful for organizing and retrieving audio segments based on their acoustic characteristics, facilitating easier analysis and processing in subsequent tasks.
+2. **Basic Workflow**:
+   - Click "Load Audio" to select a WAV file
+   - Choose a segmentation method from the dropdown
+   - Adjust parameters as needed
+   - Click "Segment and Visualize" to process the audio
+   - Use the cluster controls to group similar segments
+   - Play segments by selecting them and clicking "Play"
+
+3. **Manual Segmentation**:
+   - Click "Manual Segmentation" to enable
+   - Click on the waveform to add segment boundaries
+   - Press 'C' to clear the last boundary
+   - Save manual segments using "Save Manual Segments"
+
+## Controls
+
+### Segmentation Parameters
+
+- **Segmentation Threshold**: Controls sensitivity of segmentation
+- **Clustering Epsilon**: Affects cluster boundary decisions
+- **Min Samples**: Minimum samples for cluster formation
+- **Number of Segments**: Target number of clusters
+- **Frequency Range**: Min/Max frequencies for frequency-based segmentation
+- **Similarity Threshold**: Controls segment similarity matching
+
+### Visualization Controls
+
+- **Zoom In (+)**: Increase zoom level
+- **Zoom Out (-)**: Decrease zoom level
+- **Reset View**: Return to full waveform view
+
+### Playback Controls
+
+- **Play Selected Segment**: Plays the currently selected segment
+- **Stop Playback**: Stops current playback (same button)
+
+## File Management
+
+- **Save Segments**: Exports segments with metadata
+- **Save Manual Segments**: Exports manually created segments
+- **Clear Segments**: Removes all current segments
+
+## Key Components
+
+1. **Feature Detection** (`feature_detection.py`):
+   - Extracts audio features (beats, transients, spectral features)
+   - Provides basis for segmentation
+
+2. **Segmentation** (`segmentation.py`):
+   - Implements different segmentation algorithms
+   - Handles segment boundary detection
+
+3. **Clustering** (`clustering.py`):
+   - Groups similar segments
+   - Reduces redundant segments
+
+4. **Visualization** (`visualization.py`):
+   - Handles waveform display
+   - Manages interactive visualization elements
+
+5. **Audio Player** (`audio_player.py`):
+   - Manages audio playback
+   - Handles segment-specific playback
+
+## Tips
+
+- For best results with beat-based segmentation, use rhythmic audio
+- Transient-based segmentation works well for percussive sounds
+- Adjust the similarity threshold to control cluster tightness
+- Use manual segmentation for precise control
+- Combine automatic segmentation with manual adjustments for optimal results
+
+## Requirements
+
+- Python 3.7+
+- PyQt5
+- librosa
+- numpy
+- matplotlib
+- pygame
+- soundfile
+- scikit-learn
+
+## License
+
+[Your License Here]
+
+## Contributing
+
+[Your Contributing Guidelines Here]

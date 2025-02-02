@@ -24,16 +24,36 @@ def detect_spectral_features(y, sr):
     }
 
 def detect_features(audio_file):
+    """Detect various audio features."""
     y, sr = librosa.load(audio_file)
-    transients = detect_transients(y, sr)
-    tempo, beat_times = detect_beats(y, sr)
-    spectral_features = detect_spectral_features(y, sr)
-    return {
-        "transients": transients,
-        "beats": beat_times,
-        "tempo": tempo,
-        **spectral_features
+    
+    # Store audio file path in features
+    features = {
+        "audio_file": audio_file
     }
+    
+    # Detect beats
+    tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
+    features["beats"] = librosa.frames_to_time(beats, sr=sr)
+    features["tempo"] = tempo
+    
+    # Detect transients
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    transients = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr)
+    features["transients"] = librosa.frames_to_time(transients, sr=sr)
+    
+    # Spectral features
+    times = librosa.times_like(onset_env, sr=sr)
+    spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
+    features["spectral_centroid"] = (times, spectral_centroids)
+    
+    spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
+    features["spectral_rolloff"] = (times, spectral_rolloff)
+    
+    spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)[0]
+    features["spectral_bandwidth"] = (times, spectral_bandwidth)
+    
+    return features
 
 def plot_features(y, sr):
     plt.figure(figsize=(10, 4))
