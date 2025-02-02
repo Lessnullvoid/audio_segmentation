@@ -1,4 +1,26 @@
-librosa
-numpy
-matplotlib
-pydub
+# Core dependencies
+numpy>=1.21.0
+scipy>=1.7.0
+librosa>=0.9.0
+soundfile>=0.10.3
+PyQt5>=5.15.0
+matplotlib>=3.4.0
+pygame>=2.1.0
+scikit-learn>=0.24.0
+
+# Audio processing
+pydub>=0.25.1
+audioread>=2.1.9
+
+# Visualization
+seaborn>=0.11.0
+
+# Optional but recommended
+numba>=0.54.0  # For faster audio processing
+joblib>=1.0.0  # For parallel processing
+tqdm>=4.62.0   # For progress bars
+
+# Development dependencies (optional)
+pytest>=6.2.5
+black>=21.7b0
+flake8>=3.9.0
