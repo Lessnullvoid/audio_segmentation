@@ -29,9 +29,10 @@ audio_segmentation/
 
 - **Feature Detection**: Extract transients, beats, and spectral features using `feature_detection.py`.
 - **Segmentation**: Chop audio into meaningful segments based on detected features.
+- **Manual Segmentation**: Allows users to manually segment audio using a spectrogram view, providing precise control over segment boundaries.
 - **Clustering**: Reduce redundant segments by clustering and selecting the most unique ones.
 - **Visualization**: Display audio waveforms and feature overlays for analysis.
-- **GUI**: Intuitive PyQt5 interface for user interaction.
+- **GUI**: Intuitive PyQt5 interface for user interaction, with organized layout for easy access to functionalities.
 - **Batch Processing**: Process multiple audio files simultaneously for efficiency.
 - **Customizable Parameters**: Fine-tune detection and segmentation parameters to suit different audio types.
 - **Clustered Storage with Metadata**: Save segmented audio files into structured directories based on their cluster labels, with filenames containing frequency and musical note metadata.
@@ -55,6 +56,7 @@ This tool is ideal for audio engineers, music producers, and researchers who nee
 
 ## Usage
 - Load Audio File: Select a WAV file for analysis.
+- Manual Segmentation: Use the spectrogram view to manually define segment boundaries.
 - Adjust Segmentation Threshold: Modify the sensitivity of feature detection.
 - Visualize Features: View waveform with feature overlays.
 - Cluster Segments: Reduce redundant segments automatically.
