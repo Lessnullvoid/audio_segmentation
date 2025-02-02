@@ -32,6 +32,19 @@ def detect_features(audio_file):
         "audio_file": audio_file
     }
     
+    # Detect onsets
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    onset_frames = librosa.onset.onset_detect(
+        onset_envelope=onset_env,
+        sr=sr,
+        wait=1,  # minimum number of frames between onsets
+        pre_avg=3,  # number of frames for pre-averaging
+        post_avg=3,  # number of frames for post-averaging
+        pre_max=3,  # number of frames for pre-maximum
+        post_max=3  # number of frames for post-maximum
+    )
+    features["onsets"] = librosa.frames_to_time(onset_frames, sr=sr)
+    
     # Detect beats
     tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
     features["beats"] = librosa.frames_to_time(beats, sr=sr)

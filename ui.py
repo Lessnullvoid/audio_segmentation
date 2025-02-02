@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer
 import sys
 from feature_detection import detect_features
-from segmentation import segment_audio, segment_by_beats, segment_by_transients, segment_by_frequency
+from segmentation import segment_audio, segment_by_beats, segment_by_transients, segment_by_frequency, segment_by_onsets
 from visualization import plot_features, simplified_waveform_with_segments, WaveformVisualizer
 from utils import chop_audio_with_metadata
 from clustering import cluster_segments, cluster_segments_kmeans
@@ -116,7 +116,12 @@ class AudioSegmentationApp(QMainWindow):
         self.method_label = QLabel("Select segmentation method")
         controls_layout.addWidget(self.method_label)
         self.method_combo = QComboBox()
-        self.method_combo.addItems(["By Beats", "By Transients", "By Frequency Range"])
+        self.method_combo.addItems([
+            "By Beats", 
+            "By Transients", 
+            "By Frequency Range",
+            "By Onsets"
+        ])
         controls_layout.addWidget(self.method_combo)
 
         # 3. Segmentation Parameters
@@ -335,70 +340,108 @@ class AudioSegmentationApp(QMainWindow):
 
     def segment_audio(self):
         if not hasattr(self, "audio_file"):
-            print("No audio file loaded!")
+            print("\n[ERROR] No audio file loaded!")
             return
 
+        print("\n" + "="*50)
+        print("STARTING AUDIO SEGMENTATION PROCESS")
+        print("="*50)
+
+        print("\n[1/4] Detecting audio features...")
         self.features = detect_features(self.audio_file)
-        print(f"Extracted features: {self.features}")
+        print(f"✓ Features extracted successfully")
 
         manual_segment_count = self.manual_segments_input.text()
         selected_method = self.method_combo.currentText()
-        
-        print(f"Selected method: {selected_method}")  # Debug print
-        
+        print(f"\n[2/4] Using segmentation method: {selected_method}")
+
+        # Special handling for when user requests specific number of segments
         if manual_segment_count.isdigit():
             n_segments = int(manual_segment_count)
-            print(f"Using manual segment count: {n_segments}")  # Debug print
-            
-            # First create segments if none exist
-            if not self.auto_segments:
-                if selected_method == "By Beats":
-                    self.auto_segments = segment_by_beats(self.features)
-                elif selected_method == "By Transients":
-                    self.auto_segments = segment_by_transients(self.features)
-                elif selected_method == "By Frequency Range":
-                    min_freq = self.min_freq_slider.value()
-                    max_freq = self.max_freq_slider.value()
-                    self.auto_segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq)
-            
-            if self.auto_segments:
+            print("\n[3/4] Processing with requested segment count:")
+            print(f"└── Target number of segments: {n_segments}")
+            print("└── Generating initial segments...")
+
+            # Generate all possible segments based on method
+            if selected_method == "By Beats":
+                all_segments = segment_by_beats(self.features)
+            elif selected_method == "By Transients":
+                all_segments = segment_by_transients(self.features)
+            elif selected_method == "By Frequency Range":
+                min_freq = self.min_freq_slider.value()
+                max_freq = self.max_freq_slider.value()
+                print(f"└── Frequency range: {min_freq}Hz - {max_freq}Hz")
+                all_segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq)
+            elif selected_method == "By Onsets":
+                print("└── Using onset detection...")
+                all_segments = segment_by_onsets(self.features)
+            else:
+                print("\n[ERROR] Unknown segmentation method")
+                return
+
+            if all_segments:
+                print(f"└── Found {len(all_segments)} potential segments")
+                print("\n[4/4] Clustering process:")
+                print(f"└── Selecting {n_segments} most representative segments...")
+                
+                if n_segments > len(all_segments):
+                    print(f"└── WARNING: Found fewer segments than requested")
+                    print(f"    ├── Requested: {n_segments}")
+                    print(f"    └── Available: {len(all_segments)}")
+                    n_segments = len(all_segments)
+                
                 similarity_threshold = self.similarity_slider.value() / 100
+                print(f"└── Using similarity threshold: {similarity_threshold:.2f}")
+                
                 self.auto_segments, self.cluster_labels = cluster_segments_kmeans(
-                    self.audio_file, 
-                    self.auto_segments, 
+                    self.audio_file,
+                    all_segments,
                     n_clusters=n_segments,
                     similarity_threshold=similarity_threshold
                 )
+                print(f"✓ Successfully selected {len(self.auto_segments)} segments")
             else:
-                print("No segments available for clustering!")
+                print("\n[ERROR] No segments could be generated!")
                 return
+
+        # Original logic for when no specific segment count is requested
         else:
+            print("\n[3/4] Processing with automatic segmentation:")
             if selected_method == "By Beats":
-                print("Segmenting by beats...")  # Debug print
+                print("└── Detecting and segmenting by beats...")
                 self.auto_segments = segment_by_beats(self.features)
             elif selected_method == "By Transients":
-                print("Segmenting by transients...")  # Debug print
+                print("└── Detecting and segmenting by transients...")
                 self.auto_segments = segment_by_transients(self.features)
             elif selected_method == "By Frequency Range":
-                print("Segmenting by frequency range...")  # Debug print
                 min_freq = self.min_freq_slider.value()
                 max_freq = self.max_freq_slider.value()
+                print(f"└── Segmenting by frequency range: {min_freq}Hz - {max_freq}Hz")
                 self.auto_segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq)
+            elif selected_method == "By Onsets":
+                print("└── Detecting and segmenting by onsets...")
+                self.auto_segments = segment_by_onsets(self.features)
             else:
-                print(f"Unknown segmentation method: {selected_method}")
+                print("\n[ERROR] Unknown segmentation method")
                 return
 
-        self.segments = self.auto_segments  # Update current active segments
-        print(f"Generated segments: {self.segments}")  # Debug print
-
-        # Update visualization after segmentation
+        # Update segments and visualization
+        print("\n[4/4] Finalizing:")
+        self.segments = self.auto_segments
+        
         if self.segments:
+            print(f"└── Generated {len(self.segments)} final segments")
             self.visualizer.plot_waveform(self.audio_file, self.segments)
             self.cluster_list.clear()
             for i, segment in enumerate(self.segments):
-                self.cluster_list.addItem(f"Segment {i + 1}: {segment[0]:.2f}s - {segment[1]:.2f}s")
+                self.cluster_list.addItem(
+                    f"Segment {i + 1}: {segment[0]:.2f}s - {segment[1]:.2f}s"
+                )
+            print("\n✓ Segmentation process completed successfully!")
+            print("="*50)
         else:
-            print("No segments were generated!")
+            print("\n[ERROR] No segments were generated!")
+            print("="*50)
 
     def toggle_manual_mode(self):
         """Toggle manual segmentation mode"""

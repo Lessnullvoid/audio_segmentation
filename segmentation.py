@@ -151,3 +151,42 @@ def segment_by_frequency(features, min_freq=100, max_freq=2000, min_segment_leng
     print(f"- Segments created: {segment_count}")
     
     return segments
+
+def segment_by_onsets(features, min_segment_length=0.1):
+    """Segment audio by onset detection"""
+    print("\nStarting onset-based segmentation...")
+    segments = []
+    onsets = features["onsets"]
+    
+    if len(onsets) < 2:
+        print("Not enough onsets detected for segmentation")
+        return []
+    
+    print(f"Processing {len(onsets)} detected onsets...")
+    valid_segments = 0
+    short_segments = 0
+    silent_segments = 0
+    
+    for i in range(len(onsets) - 1):
+        start = onsets[i]
+        end = onsets[i + 1]
+        
+        if end - start >= min_segment_length:
+            if not is_silent_segment(features["audio_file"], start, end):
+                segments.append((start, end))
+                valid_segments += 1
+            else:
+                silent_segments += 1
+        else:
+            short_segments += 1
+            
+        if (i + 1) % 20 == 0:  # Progress update every 20 onsets
+            print(f"Processed {i + 1}/{len(onsets)} onsets...")
+    
+    print(f"\nOnset segmentation complete:")
+    print(f"- Total onsets processed: {len(onsets)}")
+    print(f"- Valid segments created: {valid_segments}")
+    print(f"- Short segments skipped: {short_segments}")
+    print(f"- Silent segments skipped: {silent_segments}")
+    
+    return segments

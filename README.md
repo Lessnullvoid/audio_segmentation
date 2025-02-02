@@ -23,10 +23,15 @@ audio_segmentation/
 
 ## Features
 
-- **Feature Detection**: Extract transients, beats, and spectral features using `feature_detection.py`
-- **Segmentation**: Chop audio into meaningful segments based on detected features
+- **Feature Detection**: Extract transients, beats, onsets, and spectral features
+- **Multiple Segmentation Methods**:
+  - Beat-based segmentation
+  - Transient-based segmentation
+  - Frequency range-based segmentation
+  - Onset-based segmentation (New!)
 - **Manual Segmentation**: Allows users to manually segment audio using a spectrogram view
 - **Clustering**: Reduce redundant segments by clustering and selecting the most unique ones
+- **Smart Segment Selection**: Request specific number of segments and get the most representative ones
 - **Visualization**: Display audio waveforms and feature overlays for analysis
 - **GUI**: Intuitive PyQt5 interface for user interaction
 - **Batch Processing**: Process multiple audio files simultaneously for efficiency
@@ -36,6 +41,9 @@ audio_segmentation/
 
 ## Recent Updates
 
+- **Added Onset Detection**: New segmentation method using onset detection
+- **Improved Segment Selection**: Smart selection of representative segments when specific count is requested
+- **Enhanced Terminal Feedback**: Detailed progress and status messages during processing
 - **Improved Audio Playback**: New audio player system using pygame for more responsive playback
 - **Enhanced UI Feedback**: Visual feedback for playback state with color-coded buttons
 - **Better Memory Management**: Optimized audio loading and playback
@@ -100,6 +108,8 @@ The software organizes segmented audio files into directories by cluster labels.
 - Use manual segmentation mode for precise control
 - Adjust clustering parameters based on your audio material
 - Save frequently when working with large files
+- For percussive audio, try the new onset-based segmentation
+- When requesting specific segment count, ensure it's reasonable for your audio length
 
 ## TODO
 
@@ -113,13 +123,13 @@ The software organizes segmented audio files into directories by cluster labels.
   - [ ] Add manual session save/load options
 
 ### 2. Onset-based Segmentation
-- [ ] Add onset detection mode
-  - [ ] Implement onset detection algorithm
-  - [ ] Add onset sensitivity controls
-  - [ ] Create onset visualization overlay
-  - [ ] Add onset threshold adjustment
-  - [ ] Implement onset-based segment generation
-  - [ ] Add onset type selection (percussive/harmonic)
+- [x] Add onset detection mode
+- [x] Implement onset detection algorithm
+- [x] Add onset sensitivity controls
+- [x] Create onset visualization overlay
+- [x] Add onset threshold adjustment
+- [x] Implement onset-based segment generation
+- [x] Add onset type selection (percussive/harmonic)
 
 ### Future Improvements
 - [ ] Add batch processing for onset detection
