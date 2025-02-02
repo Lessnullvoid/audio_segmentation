@@ -1,7 +1,7 @@
 # Audio Segmentation Tool
 
 <p align="center">
-  <img src="assets/audio_segmentation_ui.png" alt="Audio Segmentation Tool Interface" width="800"/>
+  <img src="assets/audio_seg_tool.png" alt="Audio Segmentation Tool Interface" width="800"/>
 </p>
 
 This repository contains a Python-based audio segmentation tool with a graphical user interface (GUI) for feature detection, segmentation, and clustering.
