@@ -96,3 +96,31 @@ The software organizes segmented audio files into directories by cluster labels.
 - Use manual segmentation mode for precise control
 - Adjust clustering parameters based on your audio material
 - Save frequently when working with large files
+
+## TODO
+
+### 1. Session Management System
+- [ ] Implement JSON-based session storage
+  - [ ] Save segment positions and metadata
+  - [ ] Save clustering information
+  - [ ] Store audio file path and parameters
+  - [ ] Add auto-save functionality
+  - [ ] Create session recovery on program start
+  - [ ] Add manual session save/load options
+
+### 2. Onset-based Segmentation
+- [ ] Add onset detection mode
+  - [ ] Implement onset detection algorithm
+  - [ ] Add onset sensitivity controls
+  - [ ] Create onset visualization overlay
+  - [ ] Add onset threshold adjustment
+  - [ ] Implement onset-based segment generation
+  - [ ] Add onset type selection (percussive/harmonic)
+
+### Future Improvements
+- [ ] Add batch processing for onset detection
+- [ ] Implement segment preview in list view
+- [ ] Add waveform zoom synchronization
+- [ ] Improve error handling and user feedback
+- [ ] Add export options for session data
+- [ ] Create preset system for different audio types
