@@ -23,31 +23,39 @@ audio_segmentation/
 
 ## Features
 
-- **Feature Detection**: Extract transients, beats, onsets, and spectral features
+- **Audio Loading and Visualization**: Load and visualize WAV files with waveform display
 - **Multiple Segmentation Methods**:
   - Beat-based segmentation
   - Transient-based segmentation
   - Frequency range-based segmentation
-  - Onset-based segmentation (New!)
-- **Manual Segmentation**: Allows users to manually segment audio using a spectrogram view
-- **Clustering**: Reduce redundant segments by clustering and selecting the most unique ones
-- **Smart Segment Selection**: Request specific number of segments and get the most representative ones
-- **Visualization**: Display audio waveforms and feature overlays for analysis
-- **GUI**: Intuitive PyQt5 interface for user interaction
-- **Batch Processing**: Process multiple audio files simultaneously for efficiency
-- **Customizable Parameters**: Fine-tune detection and segmentation parameters
-- **Clustered Storage**: Save segmented audio files into structured directories
-- **Efficient Playback**: Optimized audio playback system using pygame
+  - Onset-based segmentation
+- **Segmentation Controls**:
+  - Minimum and maximum time constraints
+  - Similarity threshold filtering
+  - Automatic merging of short segments
+- **Clustering Capabilities**:
+  - Optional clustering of segments by similarity
+  - Preservation of all segments during clustering
+  - Similarity scores to cluster centers
+  - Organized storage in cluster-based folders
+- **Manual Segmentation**: Create segments manually using the waveform view
+- **Segment Management**:
+  - Play/stop individual segments
+  - Clear all segments
+  - View segment duration and time range
+- **Export Features**:
+  - Save segments with or without clustering
+  - Organized folder structure based on clustering state
+  - Metadata inclusion in filenames
 
 ## Recent Updates
 
-- **Added Onset Detection**: New segmentation method using onset detection
-- **Improved Segment Selection**: Smart selection of representative segments when specific count is requested
-- **Enhanced Terminal Feedback**: Detailed progress and status messages during processing
-- **Improved Audio Playback**: New audio player system using pygame for more responsive playback
-- **Enhanced UI Feedback**: Visual feedback for playback state with color-coded buttons
-- **Better Memory Management**: Optimized audio loading and playback
-- **Responsive Controls**: Play/stop toggle functionality with visual indicators
+- **Enhanced Time Controls**: Added minimum and maximum duration constraints for segments
+- **Improved Similarity Processing**: Segments are filtered based on similarity while preserving uniqueness
+- **Flexible Clustering**: Optional clustering that preserves all segments while organizing by similarity
+- **Streamlined Saving**: Unified save functionality that adapts to clustering state
+- **Better Segment Organization**: Clear separation between general segments and clustered segments
+- **Enhanced Feedback**: Display of segment information including duration and similarity scores
 
 ## Use Recommendation
 
@@ -75,27 +83,37 @@ python main.py
 
 ### 2. Basic Operations
 - Load Audio File: Click "Load Audio" to select a WAV file
-- Choose Segmentation Method: Select from "By Beats", "By Transients", or "By Frequency"
-- Adjust Parameters: Modify thresholds and settings as needed
-- Process Audio: Click "Segment and Visualize"
+- Choose Segmentation Method: Select from available methods
+- Adjust Parameters:
+  - Set minimum and maximum segment duration
+  - Adjust similarity threshold
+  - Configure method-specific parameters
+- Generate Segments: Click "Segment Audio" to process
+- Optional Clustering:
+  - Click "Cluster Segments" to organize by similarity
+  - View similarity scores and cluster assignments
+- Save Segments:
+  - Click "Save Segments" to export
+  - Segments save to cluster folders if clustered
+  - Segments save to single folder if not clustered
 
 ### 3. Playback Controls
-- Select a segment from the list
-- Click "Play Selected Segment" to play
-- Button turns red during playback
-- Click again to stop playback
+- Select segments from the list
+- Use Play/Stop button to control playback
+- View segment duration and time range
+- Clear segments using the clear button
 
 ### 4. Manual Segmentation
-- Enable manual mode using the toggle button
 - Click on waveform to add segment boundaries
-- Use 'C' key to clear last boundary
-- Save segments using "Save Manual Segments"
+- Review segments in the list
+- Save along with other segments using "Save Segments"
 
 ### 5. Clustering
-- Adjust number of clusters using the slider
-- Click "Cluster Segments" to group similar segments
-- Review clusters in the list view
-- Play representative segments from each cluster
+- Optional step after segmentation
+- Click "Cluster Segments" to organize similar segments
+- View similarity scores to cluster centers
+- All segments are preserved during clustering
+- Save to organized cluster folders
 
 ## Clustered Storage with Metadata
 
@@ -104,12 +122,11 @@ The software organizes segmented audio files into directories by cluster labels.
 ## Performance Tips
 
 - Use WAV files with standard sample rates (44.1kHz or 48kHz)
-- Keep segment lengths reasonable (0.1-10 seconds) for optimal clustering
-- Use manual segmentation mode for precise control
-- Adjust clustering parameters based on your audio material
-- Save frequently when working with large files
-- For percussive audio, try the new onset-based segmentation
-- When requesting specific segment count, ensure it's reasonable for your audio length
+- Set appropriate minimum and maximum segment durations
+- Adjust similarity threshold based on your needs
+- Consider total audio duration when setting time constraints
+- Use clustering when organization by similarity is needed
+- Save segments before clustering for general organization
 
 ## TODO
 
@@ -121,15 +138,6 @@ The software organizes segmented audio files into directories by cluster labels.
   - [ ] Add auto-save functionality
   - [ ] Create session recovery on program start
   - [ ] Add manual session save/load options
-
-### 2. Onset-based Segmentation
-- [x] Add onset detection mode
-- [x] Implement onset detection algorithm
-- [x] Add onset sensitivity controls
-- [x] Create onset visualization overlay
-- [x] Add onset threshold adjustment
-- [x] Implement onset-based segment generation
-- [x] Add onset type selection (percussive/harmonic)
 
 ### Future Improvements
 - [ ] Add batch processing for onset detection

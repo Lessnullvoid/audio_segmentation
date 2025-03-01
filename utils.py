@@ -17,7 +17,8 @@ def frequency_to_note(frequency):
 
 def chop_audio_with_metadata(audio_file, segments, clusters=None):
     """
-    Chop the audio file into segments and save them with metadata in structured directories.
+    Chop the audio file into segments and save them with metadata.
+    If clusters is provided, organize in cluster folders, otherwise save in a single folder.
     """
     audio = AudioSegment.from_wav(audio_file)
     base_name = os.path.splitext(os.path.basename(audio_file))[0]
@@ -32,18 +33,32 @@ def chop_audio_with_metadata(audio_file, segments, clusters=None):
         spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr).mean()
         note = frequency_to_note(spectral_centroid)
         
-        # Determine subfolder based on cluster
+        # Determine save location based on clustering
         if clusters is not None and len(clusters) > i:
-            cluster_label = f"cluster_{clusters[i]}"
+            # Save in cluster subfolder
+            cluster_folder = os.path.join(output_dir, f"cluster_{clusters[i]}")
+            os.makedirs(cluster_folder, exist_ok=True)
+            save_path = cluster_folder
         else:
-            cluster_label = "unclustered"
+            # Save in main folder
+            save_path = output_dir
 
-        cluster_folder = os.path.join(output_dir, cluster_label)
-        os.makedirs(cluster_folder, exist_ok=True)
-
-        # Save segment with metadata in the filename
+        # Create filename with metadata
         filename = f"seg{i+1}_freq{int(spectral_centroid)}_note{note}.wav"
-        segment.export(os.path.join(cluster_folder, filename), format="wav")
+        segment.export(os.path.join(save_path, filename), format="wav")
+        
+        # Print progress
+        if clusters is not None:
+            print(f"Saved segment {i+1} in cluster {clusters[i]}")
+        else:
+            print(f"Saved segment {i+1}")
+
+    total_segments = len(segments)
+    print(f"\nSuccessfully saved {total_segments} segments")
+    if clusters is not None:
+        num_clusters = len(set(clusters))
+        print(f"Organized into {num_clusters} clusters")
+    print(f"Output directory: {output_dir}")
 
 def extract_features(segment_file):
     y, sr = librosa.load(segment_file)

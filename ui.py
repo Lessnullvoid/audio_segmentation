@@ -100,16 +100,13 @@ class AudioSegmentationApp(QMainWindow):
         self.load_button = QPushButton("Load audio")
         self.manual_button = QPushButton("Manual segmentation")
         self.manual_button.setCheckable(True)
-        self.save_manual_button = QPushButton("Save manual segments")
         
         # Apply black style
         self.load_button.setStyleSheet(black_button_style)
         self.manual_button.setStyleSheet(black_button_style)
-        self.save_manual_button.setStyleSheet(black_button_style)
         
         button_layout1.addWidget(self.load_button)
         button_layout1.addWidget(self.manual_button)
-        button_layout1.addWidget(self.save_manual_button)
         controls_layout.addLayout(button_layout1)
 
         # 2. Segmentation Method
@@ -200,6 +197,29 @@ class AudioSegmentationApp(QMainWindow):
         controls_layout.addWidget(self.similarity_label)
         controls_layout.addWidget(self.similarity_slider)
 
+        # Add time constraint controls
+        time_constraints_layout = QHBoxLayout()
+        
+        # Minimum time input
+        min_time_layout = QVBoxLayout()
+        self.min_time_label = QLabel("Min Time (s):")
+        self.min_time_input = QLineEdit()
+        self.min_time_input.setPlaceholderText("0.1")
+        min_time_layout.addWidget(self.min_time_label)
+        min_time_layout.addWidget(self.min_time_input)
+        
+        # Maximum time input
+        max_time_layout = QVBoxLayout()
+        self.max_time_label = QLabel("Max Time (s):")
+        self.max_time_input = QLineEdit()
+        self.max_time_input.setPlaceholderText("30.0")
+        max_time_layout.addWidget(self.max_time_label)
+        max_time_layout.addWidget(self.max_time_input)
+        
+        time_constraints_layout.addLayout(min_time_layout)
+        time_constraints_layout.addLayout(max_time_layout)
+        controls_layout.addLayout(time_constraints_layout)
+
         # 4. Action Buttons
         self.segment_button = QPushButton("Segment and Visualize")
         self.cluster_button = QPushButton("Cluster Segments")
@@ -287,7 +307,6 @@ class AudioSegmentationApp(QMainWindow):
         self.load_button.clicked.connect(self.load_audio)
         self.manual_button.clicked.connect(self.toggle_manual_mode)
         self.play_button.clicked.connect(self.play_segment)
-        self.save_manual_button.clicked.connect(self.save_manual_segments)
         self.segment_button.clicked.connect(self.segment_audio)
         self.cluster_button.clicked.connect(self.cluster_segments)
         self.save_button.clicked.connect(self.save_segments)
@@ -351,97 +370,104 @@ class AudioSegmentationApp(QMainWindow):
         self.features = detect_features(self.audio_file)
         print(f"✓ Features extracted successfully")
 
+        # Get time constraints
+        try:
+            min_time = float(self.min_time_input.text() or "0.1")
+            max_time = float(self.max_time_input.text() or "30.0")
+            if min_time < 0 or max_time < 0 or min_time >= max_time:
+                print("\n[WARNING] Invalid time constraints, using defaults")
+                min_time = 0.1
+                max_time = 30.0
+        except ValueError:
+            print("\n[WARNING] Invalid time constraints, using defaults")
+            min_time = 0.1
+            max_time = 30.0
+
         manual_segment_count = self.manual_segments_input.text()
         selected_method = self.method_combo.currentText()
+        similarity_threshold = self.similarity_slider.value() / 100
         print(f"\n[2/4] Using segmentation method: {selected_method}")
+        print(f"Time constraints: {min_time:.2f}s - {max_time:.2f}s")
+        print(f"Similarity threshold: {similarity_threshold:.2f}")
 
-        # Special handling for when user requests specific number of segments
-        if manual_segment_count.isdigit():
-            n_segments = int(manual_segment_count)
-            print("\n[3/4] Processing with requested segment count:")
-            print(f"└── Target number of segments: {n_segments}")
-            print("└── Generating initial segments...")
-
-            # Generate all possible segments based on method
-            if selected_method == "By Beats":
-                all_segments = segment_by_beats(self.features)
-            elif selected_method == "By Transients":
-                all_segments = segment_by_transients(self.features)
-            elif selected_method == "By Frequency Range":
-                min_freq = self.min_freq_slider.value()
-                max_freq = self.max_freq_slider.value()
-                print(f"└── Frequency range: {min_freq}Hz - {max_freq}Hz")
-                all_segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq)
-            elif selected_method == "By Onsets":
-                print("└── Using onset detection...")
-                all_segments = segment_by_onsets(self.features)
-            else:
-                print("\n[ERROR] Unknown segmentation method")
-                return
-
-            if all_segments:
-                print(f"└── Found {len(all_segments)} potential segments")
-                print("\n[4/4] Clustering process:")
-                print(f"└── Selecting {n_segments} most representative segments...")
-                
-                if n_segments > len(all_segments):
-                    print(f"└── WARNING: Found fewer segments than requested")
-                    print(f"    ├── Requested: {n_segments}")
-                    print(f"    └── Available: {len(all_segments)}")
-                    n_segments = len(all_segments)
-                
-                similarity_threshold = self.similarity_slider.value() / 100
-                print(f"└── Using similarity threshold: {similarity_threshold:.2f}")
-                
-                self.auto_segments, self.cluster_labels = cluster_segments_kmeans(
-                    self.audio_file,
-                    all_segments,
-                    n_clusters=n_segments,
-                    similarity_threshold=similarity_threshold
-                )
-                print(f"✓ Successfully selected {len(self.auto_segments)} segments")
-            else:
-                print("\n[ERROR] No segments could be generated!")
-                return
-
-        # Original logic for when no specific segment count is requested
+        # Generate all possible segments based on method
+        if selected_method == "By Beats":
+            all_segments = segment_by_beats(self.features, min_segment_length=min_time)
+        elif selected_method == "By Transients":
+            all_segments = segment_by_transients(self.features, min_segment_length=min_time)
+        elif selected_method == "By Frequency Range":
+            min_freq = self.min_freq_slider.value()
+            max_freq = self.max_freq_slider.value()
+            print(f"└── Frequency range: {min_freq}Hz - {max_freq}Hz")
+            all_segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq, min_segment_length=min_time)
+        elif selected_method == "By Onsets":
+            print("└── Using onset detection...")
+            all_segments = segment_by_onsets(self.features, min_segment_length=min_time)
         else:
-            print("\n[3/4] Processing with automatic segmentation:")
-            if selected_method == "By Beats":
-                print("└── Detecting and segmenting by beats...")
-                self.auto_segments = segment_by_beats(self.features)
-            elif selected_method == "By Transients":
-                print("└── Detecting and segmenting by transients...")
-                self.auto_segments = segment_by_transients(self.features)
-            elif selected_method == "By Frequency Range":
-                min_freq = self.min_freq_slider.value()
-                max_freq = self.max_freq_slider.value()
-                print(f"└── Segmenting by frequency range: {min_freq}Hz - {max_freq}Hz")
-                self.auto_segments = segment_by_frequency(self.features, min_freq=min_freq, max_freq=max_freq)
-            elif selected_method == "By Onsets":
-                print("└── Detecting and segmenting by onsets...")
-                self.auto_segments = segment_by_onsets(self.features)
-            else:
-                print("\n[ERROR] Unknown segmentation method")
-                return
+            print("\n[ERROR] Unknown segmentation method")
+            return
+
+        # Filter segments by time constraints
+        all_segments = [(start, end) for start, end in all_segments if min_time <= (end - start) <= max_time]
+
+        if not all_segments:
+            print("\n[ERROR] No segments found within time constraints!")
+            return
+
+        print(f"\n[3/4] Found {len(all_segments)} segments within time constraints")
+        print("Filtering similar segments...")
+
+        # Filter out similar segments
+        unique_segments = []
+        segment_features = []
+
+        for start, end in all_segments:
+            # Extract features for the current segment
+            y, sr = librosa.load(self.audio_file, offset=start, duration=end-start)
+            if len(y) > 0:
+                # Extract multiple features for better similarity comparison
+                mfcc = librosa.feature.mfcc(y=y, sr=sr).mean(axis=1)
+                chroma = librosa.feature.chroma_stft(y=y, sr=sr).mean(axis=1)
+                spectral = librosa.feature.spectral_contrast(y=y, sr=sr).mean(axis=1)
+                current_features = np.concatenate([mfcc, chroma, spectral])
+
+                # Check similarity with already selected segments
+                is_unique = True
+                for idx, existing_features in enumerate(segment_features):
+                    similarity = np.dot(current_features, existing_features) / \
+                               (np.linalg.norm(current_features) * np.linalg.norm(existing_features))
+                    
+                    if similarity > similarity_threshold:
+                        is_unique = False
+                        # If this segment has more distinct features, replace the existing one
+                        feature_variance = np.var(current_features)
+                        existing_variance = np.var(existing_features)
+                        if feature_variance > existing_variance:
+                            unique_segments[idx] = (start, end)
+                            segment_features[idx] = current_features
+                            print(f"└── Replaced similar segment with more unique variant")
+                        break
+
+                if is_unique:
+                    unique_segments.append((start, end))
+                    segment_features.append(current_features)
 
         # Update segments and visualization
         print("\n[4/4] Finalizing:")
-        self.segments = self.auto_segments
+        print(f"└── Filtered from {len(all_segments)} to {len(unique_segments)} unique segments")
+        self.segments = unique_segments
+        # Clear any previous clustering
+        self.cluster_labels = None
         
-        if self.segments:
-            print(f"└── Generated {len(self.segments)} final segments")
-            self.visualizer.plot_waveform(self.audio_file, self.segments)
-            self.cluster_list.clear()
-            for i, segment in enumerate(self.segments):
-                self.cluster_list.addItem(
-                    f"Segment {i + 1}: {segment[0]:.2f}s - {segment[1]:.2f}s"
-                )
-            print("\n✓ Segmentation process completed successfully!")
-            print("="*50)
-        else:
-            print("\n[ERROR] No segments were generated!")
-            print("="*50)
+        self.visualizer.plot_waveform(self.audio_file, self.segments)
+        self.cluster_list.clear()
+        for i, segment in enumerate(self.segments):
+            duration = segment[1] - segment[0]
+            self.cluster_list.addItem(
+                f"Segment {i + 1}: {segment[0]:.2f}s - {segment[1]:.2f}s (duration: {duration:.2f}s)"
+            )
+        print("\n✓ Segmentation process completed successfully!")
+        print("="*50)
 
     def toggle_manual_mode(self):
         """Toggle manual segmentation mode"""
@@ -526,42 +552,80 @@ class AudioSegmentationApp(QMainWindow):
             QTimer.singleShot(100, self.check_playback_status)
 
     def cluster_segments(self):
-        if not hasattr(self, "segments"):
+        """Group segments by similarity without removing any"""
+        if not hasattr(self, "segments") or not self.segments:
             print("No segments to cluster!")
             return
         
         # Use the user-specified number of clusters
-        n_clusters = getattr(self, "n_clusters", 10)  # Default to 10 clusters
+        n_clusters = min(self.cluster_slider.value(), len(self.segments))
+        similarity_threshold = self.similarity_slider.value() / 100
         
-        self.representative_segments = cluster_segments_kmeans(self.audio_file, self.segments, n_clusters=n_clusters)
-        print(f"Clustered into {n_clusters} segments: {self.representative_segments}")
+        print(f"\nClustering segments:")
+        print(f"└── Number of clusters: {n_clusters}")
+        print(f"└── Similarity threshold: {similarity_threshold:.2f}")
         
+        # Extract features for all segments
+        segment_features = []
+        for start, end in self.segments:
+            y, sr = librosa.load(self.audio_file, offset=start, duration=end-start)
+            if len(y) > 0:
+                mfcc = librosa.feature.mfcc(y=y, sr=sr).mean(axis=1)
+                chroma = librosa.feature.chroma_stft(y=y, sr=sr).mean(axis=1)
+                spectral = librosa.feature.spectral_contrast(y=y, sr=sr).mean(axis=1)
+                current_features = np.concatenate([mfcc, chroma, spectral])
+                segment_features.append(current_features)
+            else:
+                segment_features.append(np.zeros_like(segment_features[0]) if segment_features else np.zeros(32))
+
+        # Convert to numpy array for clustering
+        features_array = np.array(segment_features)
+        
+        # Perform clustering
+        from sklearn.cluster import KMeans
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        self.cluster_labels = kmeans.fit_predict(features_array)
+        
+        # Update the display with cluster information
         self.cluster_list.clear()
-        for i, segment in enumerate(self.representative_segments):
-            self.cluster_list.addItem(f"Cluster {i + 1}: {segment}")
+        for i, segment in enumerate(self.segments):
+            duration = segment[1] - segment[0]
+            # Calculate similarity to cluster center
+            similarity = 1 - np.linalg.norm(features_array[i] - kmeans.cluster_centers_[self.cluster_labels[i]])
+            self.cluster_list.addItem(
+                f"Cluster {self.cluster_labels[i] + 1}: {segment[0]:.2f}s - {segment[1]:.2f}s "
+                f"(duration: {duration:.2f}s, similarity: {similarity:.2f})"
+            )
+        
+        print(f"✓ Successfully organized into {n_clusters} groups")
+        print(f"└── All {len(self.segments)} segments preserved")
+        
+        # Sort the list by cluster number
+        self.cluster_list.sortItems()
 
     def save_segments(self):
-        # Save segments with metadata and folder structure
-        if hasattr(self, "segments") and self.segments:
-            chop_audio_with_metadata(self.audio_file, self.segments, clusters=self.cluster_labels)
-            print("Segments saved with metadata!")
-        else:
+        """Save segments with or without clustering structure"""
+        if not hasattr(self, "segments") or not self.segments:
             print("No segments to save!")
+            return
 
-    def save_manual_segments(self):
-        # Save only manually selected segments
-        if hasattr(self, "segments") and self.segments:
-            chop_audio_with_metadata(self.audio_file, self.segments)
-            print("Manual segments saved!")
+        # Check if clustering has been performed
+        if hasattr(self, "cluster_labels") and self.cluster_labels is not None:
+            print("\nSaving segments with cluster organization...")
+            print(f"└── Found {len(set(self.cluster_labels))} clusters")
+            chop_audio_with_metadata(self.audio_file, self.segments, clusters=self.cluster_labels)
+            print("✓ Segments saved in cluster folders with metadata!")
         else:
-            print("No manual segments to save!")
+            print("\nSaving all segments in single folder...")
+            chop_audio_with_metadata(self.audio_file, self.segments)
+            print("✓ Segments saved with metadata!")
 
     def clear_segments(self):
         """Clear all segments and reset the visualization"""
         self.auto_segments = []
         self.manual_segments = []
         self.segments = []
-        self.cluster_labels = None
+        self.cluster_labels = None  # Clear clustering information
         self.cluster_list.clear()
         
         # Disable manual mode if active
